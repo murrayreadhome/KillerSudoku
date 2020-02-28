@@ -5,6 +5,8 @@ set(SOURCES
     NumberSet.cpp
     Sum.cpp
     Cell.cpp
+    Board.cpp
+    IdSet.cpp
 )
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html
