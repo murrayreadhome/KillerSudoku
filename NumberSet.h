@@ -6,8 +6,10 @@ class NumberSet
 {
 public:
     NumberSet();
-    NumberSet(int bits);
-    NumberSet(const std::vector<int>& nums);
+    explicit NumberSet(const std::vector<int>& nums);
+    static NumberSet single(int n);
+    static NumberSet all();
+    static NumberSet none();
 
     bool operator==(const NumberSet& s) const;
     bool operator!=(const NumberSet& s) const;
@@ -18,14 +20,14 @@ public:
     bool empty() const;
     int sum() const;
 
-    static NumberSet single(int n);
-    static NumberSet all();
-    static NumberSet none();
     NumberSet intersection(const NumberSet& s) const;
     NumberSet add(int n) const;
     NumberSet add(const NumberSet& s) const;
     NumberSet remove(const NumberSet& s) const;
     NumberSet invert() const;
+
+private:
+    explicit NumberSet(int bits);
 
 private:
     int bits_;

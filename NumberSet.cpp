@@ -1,5 +1,6 @@
 #include "NumberSet.h"
 #include <numeric>
+#include "gtest/gtest.h"
 using namespace std;
 
 NumberSet::NumberSet()
@@ -82,22 +83,22 @@ int NumberSet::sum() const
 
 NumberSet NumberSet::single(int n)
 {
-    return {1<<(n-1)};    
+    return NumberSet{1<<(n-1)};    
 }
 
 NumberSet NumberSet::all()
 {
-    return {(1<<9)-1};
+    return NumberSet{(1<<9)-1};
 }
 
 NumberSet NumberSet::none()
 {
-    return {0};
+    return NumberSet{0};
 }
 
 NumberSet NumberSet::intersection(const NumberSet& s) const
 {
-    return {bits_ & s.bits_};
+    return NumberSet{bits_ & s.bits_};
 }
 
 NumberSet NumberSet::add(int n) const
@@ -107,15 +108,42 @@ NumberSet NumberSet::add(int n) const
 
 NumberSet NumberSet::add(const NumberSet& s) const
 {
-    return {bits_ | s.bits_};
+    return NumberSet{bits_ | s.bits_};
 }
 
 NumberSet NumberSet::remove(const NumberSet& s) const
 {
-    return {bits_ & ~s.bits_};
+    return NumberSet{bits_ & ~s.bits_};
 }
 
 NumberSet NumberSet::invert() const
 {
-    return {((1<<9)-1) & ~bits_};
+    return NumberSet{((1<<9)-1) & ~bits_};
+}
+
+TEST(NumberSet, Ctors)
+{
+    ASSERT_EQ(0, NumberSet().bits());
+    ASSERT_EQ(3, NumberSet({1,2}).bits());
+    ASSERT_EQ(NumberSet({3,4}), NumberSet({4,3}));
+    ASSERT_EQ(NumberSet(), NumberSet::none());
+    ASSERT_EQ(NumberSet({1,2,3,4,5,6,7,8,9}), NumberSet::all());
+    ASSERT_EQ(NumberSet(vector<int>{5}), NumberSet::single(5));
+}
+
+TEST(NumberSet, Access)
+{
+    ASSERT_EQ(vector<int>({4,8}), NumberSet({4,8}).nums());
+    ASSERT_TRUE(NumberSet().empty());
+    ASSERT_EQ(3u, NumberSet({2,4,7}).size());
+    ASSERT_EQ(12, NumberSet({1,3,8}).sum());
+}
+
+TEST(NumberSet, Ops)
+{
+    ASSERT_EQ(NumberSet({3,4}), NumberSet({2,3,4}).intersection(NumberSet({3,4,5})));
+    ASSERT_EQ(NumberSet({2,3,4}), NumberSet({2,3}).add(NumberSet({2,4})));
+    ASSERT_EQ(NumberSet({2,3,4}), NumberSet({2,3}).add(4));
+    ASSERT_EQ(NumberSet({2,4}), NumberSet({2,3,4}).remove(NumberSet(vector<int>{3})));    
+    ASSERT_EQ(NumberSet({1,2,3,4,5}), NumberSet({6,7,8,9}).invert());
 }
