@@ -5,7 +5,7 @@ using namespace std;
 
 TEST(Testing, Works)
 {
-    ASSERT_EQ(true, true);
+    EXPECT_EQ(true, true);
 }
 
 int test_main(int argc, char** argv)

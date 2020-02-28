@@ -4,6 +4,7 @@ set(SOURCES
     KillerSudoku.cpp
     NumberSet.cpp
     Sum.cpp
+    Cell.cpp
 )
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html

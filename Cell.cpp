@@ -1,4 +1,5 @@
 #include "Cell.h"
+using namespace std;
 
 Cell::Cell()
 : value_(Unknown), numbers_(NumberSet::all())
@@ -27,4 +28,20 @@ void Cell::set_numbers(NumberSet numbers)
     numbers_ = numbers;
     if (numbers_.size() == 1)
         value_ = numbers_.nums().front();
+    else
+        value_ = Unknown;
+}
+
+#include "gtest/gtest.h"
+
+TEST(Cell, Cell)
+{
+    Cell c;
+    EXPECT_EQ(Unknown, c.value());
+    c.set_value(2);
+    EXPECT_EQ(NumberSet::single(2), c.numbers());
+    c.set_numbers(NumberSet({3,5}));
+    EXPECT_EQ(Unknown, c.value());
+    c.set_numbers(NumberSet::single(5));
+    EXPECT_EQ(5, c.value());
 }

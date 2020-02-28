@@ -10,7 +10,9 @@ public:
     int num_cells() const;
     NumberSet possible() const;
     NumberSet required() const;
-    void restrict_to(NumberSet possible, NumberSet required);
+    void restrict_possible(NumberSet possible);
+    void add_required(NumberSet required);
+    void remove_cell(int value);
 
 private:
     void update_sets();
