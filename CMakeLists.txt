@@ -3,6 +3,7 @@ project(KillerSudoku)
 set(SOURCES 
     KillerSudoku.cpp
     NumberSet.cpp
+    Sum.cpp
 )
 
 # https://cmake.org/cmake/help/latest/prop_tgt/CXX_STANDARD.html

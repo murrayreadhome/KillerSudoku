@@ -15,6 +15,16 @@ NumberSet::NumberSet(const vector<int>& nums)
         bits_ |= 1<<(i-1);
 }
 
+bool NumberSet::operator==(const NumberSet& s) const
+{
+    return bits_ == s.bits_;
+}
+
+bool NumberSet::operator!=(const NumberSet& s) const
+{
+    return bits_ != s.bits_;
+}
+
 int NumberSet::bits() const
 {
     return bits_;
@@ -50,6 +60,11 @@ size_t NumberSet::size() const
     return sizes[bits_];
 }
 
+bool NumberSet::empty() const
+{
+    return bits_ == 0;
+}
+
 int NumberSet::sum() const
 {
     const static auto sums = []() -> vector<int>
@@ -70,6 +85,16 @@ NumberSet NumberSet::single(int n)
     return {1<<(n-1)};    
 }
 
+NumberSet NumberSet::all()
+{
+    return {(1<<9)-1};
+}
+
+NumberSet NumberSet::none()
+{
+    return {0};
+}
+
 NumberSet NumberSet::intersection(const NumberSet& s) const
 {
     return {bits_ & s.bits_};
@@ -88,4 +113,9 @@ NumberSet NumberSet::add(const NumberSet& s) const
 NumberSet NumberSet::remove(const NumberSet& s) const
 {
     return {bits_ & ~s.bits_};
+}
+
+NumberSet NumberSet::invert() const
+{
+    return {((1<<9)-1) & ~bits_};
 }
