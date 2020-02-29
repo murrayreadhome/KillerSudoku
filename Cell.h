@@ -1,5 +1,6 @@
 #pragma once
 #include "NumberSet.h"
+#include "IdSet.h"
 
 const int Unknown = 0;
 
@@ -13,6 +14,9 @@ public:
 
     NumberSet numbers() const;
     void set_numbers(NumberSet numbers);
+
+    size_t id;
+    IdSet sums;
 
 private:
     int value_;

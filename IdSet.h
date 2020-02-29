@@ -17,6 +17,8 @@ public:
 
     const size_t* begin() const;
     const size_t* end() const;
+    size_t* begin();
+    size_t* end();
 
     void add(size_t i);
     IdSet add(const IdSet& i) const;
@@ -26,8 +28,6 @@ public:
     size_t overlap(const IdSet& i) const;
 
 private:
-    size_t* begin();
-    size_t* end();
     size_t* lower_bound(int i);
 
 private:

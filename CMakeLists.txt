@@ -3,7 +3,7 @@ project(KillerSudoku)
 set(SOURCES 
     KillerSudoku.cpp
     NumberSet.cpp
-    Sum.cpp
+    SumSet.cpp
     Cell.cpp
     Board.cpp
     IdSet.cpp
