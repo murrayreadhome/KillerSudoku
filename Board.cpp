@@ -136,6 +136,9 @@ bool Board::tick()
             case 3:
                 unique_required_subset(sum);
                 break;
+            case 4:
+                unique_required_free_subset(sum);
+                break;
         }
         int queue_flag = 1<<i;
         int& sum_flags = queued_[sum];
@@ -143,6 +146,31 @@ bool Board::tick()
         return true;
     }
     return false;
+}
+
+void Board::unique_required_free_subset(size_t s)
+{
+    const SumSet& parent = sums_[s];
+    size_t n = parent.cells.size();
+    for (int i=0; i<(1<<n); i++)
+    {
+        NumberSet ns(i);
+        size_t nb = ns.size();
+        if (nb < 2 || n-2 < nb)
+            continue;
+        NumberSet subset;
+        for (int b : ns.nums())
+            subset = subset.add(cells_[parent.cells.begin()[b-1]].numbers());
+        if (subset.size() != nb)
+            continue;
+        NumberSet allowed = subset.invert();
+        for (size_t j=n-1; j<n; j--)
+        {
+            if (ns.contains(j+1))
+                continue;
+            restrict_cell(parent.cells.begin()[j], allowed);
+        }
+    }
 }
 
 void Board::unique_required_subset(size_t s)
@@ -436,6 +464,58 @@ c 13
 d 31
 e 8
 f 3
+)";
+    stringstream in(sudoku);
+    Board b;
+    in >> b;
+    b.apply_rules();
+    cout << b;
+}
+
+TEST(Board, KillerSudoku2)
+{
+    string sudoku = R"(AABCDEFFG
+HIBCDEJJG
+HIKKLLJJM
+NNKKOLPQM
+RRSTOPPQU
+VWSTXYYUU
+VWZaXbccd
+VeZafbggd
+eefffbddd
+A 10
+B 14
+C 13
+D 10
+E 11
+F 8
+G 12
+H 5
+I 10
+J 22
+K 22
+L 19
+M 4
+N 8
+O 6
+P 10
+Q 9
+R 15
+S 6
+T 13
+U 18
+V 21
+W 3
+X 11
+Y 11
+Z 8
+a 5
+b 19
+c 15
+d 23
+e 18
+f 19
+g 7
 )";
     stringstream in(sudoku);
     Board b;

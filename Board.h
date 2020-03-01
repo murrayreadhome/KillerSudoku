@@ -25,11 +25,12 @@ private:
     void queue_sum(size_t sum);
     bool tick();
 
-    const size_t num_rules = 4;
+    const size_t num_rules = 5;
     void sum_restrict_possible(size_t s);
     void restrict_sum_to_cell_possible(size_t s);
     void unique_required_position(size_t s);
     void unique_required_subset(size_t s);
+    void unique_required_free_subset(size_t s);
 
     void innie_outie_sums(size_t s);
     void get_non_overlap_innies(size_t s, IdSet& innies);

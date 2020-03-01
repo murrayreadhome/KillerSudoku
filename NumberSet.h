@@ -7,6 +7,7 @@ class NumberSet
 public:
     NumberSet();
     explicit NumberSet(const std::vector<int>& nums);
+    explicit NumberSet(int bits);
     static NumberSet single(int n);
     static NumberSet all();
     static NumberSet none();
@@ -26,9 +27,6 @@ public:
     NumberSet add(const NumberSet& s) const;
     NumberSet remove(const NumberSet& s) const;
     NumberSet invert() const;
-
-private:
-    explicit NumberSet(int bits);
 
 private:
     int bits_;
