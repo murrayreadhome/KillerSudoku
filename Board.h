@@ -14,6 +14,7 @@ public:
     void set_cell(size_t cell, int value);
 
     void apply_rules();
+    bool solve();
 
 private:
     void link(size_t sum, size_t cell);
@@ -25,7 +26,7 @@ private:
     void queue_sum(size_t sum);
     bool tick();
 
-    const size_t num_rules = 5;
+    enum {num_rules = 5};
     void sum_restrict_possible(size_t s);
     void restrict_sum_to_cell_possible(size_t s);
     void unique_required_position(size_t s);

@@ -326,6 +326,40 @@ void Board::apply_rules()
         keep_going = tick();
 }
 
+bool Board::solve()
+{
+    size_t not_done = 81;
+    try
+    {
+        apply_rules();
+        for (size_t i=0; i<81; i++)
+        {
+            if (cells_[i].value() == Unknown)
+            {
+                not_done = i;
+                break;
+            }
+        }
+        if (not_done == 81)
+            return true;
+        for (int n : cells_[not_done].numbers().nums())
+        {
+            Board b = *this;
+            b.set_cell(not_done, n);
+            if (b.solve())
+            {
+                *this = b;
+                return true;
+            }
+        }
+        return false;
+    }
+    catch(const std::runtime_error& e)
+    {
+        return false;
+    }
+}
+
 void Board::link(size_t sum, size_t cell)
 {
     sums_[sum].cells.add(cell);
@@ -520,6 +554,6 @@ g 7
     stringstream in(sudoku);
     Board b;
     in >> b;
-    b.apply_rules();
+    b.solve();
     cout << b;
 }
