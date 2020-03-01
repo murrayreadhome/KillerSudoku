@@ -65,7 +65,7 @@ size_t* IdSet::lower_bound(int i)
     return at;
 }
 
-void IdSet::add(size_t i)
+IdSet& IdSet::add(size_t i)
 {
     size_t* at = lower_bound(i);
     if ((at == end() || *at != i) && size_<9)
@@ -79,9 +79,10 @@ void IdSet::add(size_t i)
         *at = i;
         size_++;
     }
+    return *this;
 }
 
-IdSet IdSet::add(const IdSet& i) const
+IdSet& IdSet::add(const IdSet& i)
 {
     IdSet out;
     auto b1 = begin();
@@ -107,10 +108,11 @@ IdSet IdSet::add(const IdSet& i) const
             b2++;
         }
     }
-    return out;
+    *this = out;
+    return *this;
 }
 
-void IdSet::remove(size_t i)
+IdSet& IdSet::remove(size_t i)
 {
     auto r = begin();
     auto w = r;
@@ -123,9 +125,10 @@ void IdSet::remove(size_t i)
             size_--;
         r++;
     }
+    return *this;
 }
 
-void IdSet::remove(const IdSet& i)
+IdSet& IdSet::remove(const IdSet& i)
 {
     auto r = begin();
     auto w = r;
@@ -142,6 +145,7 @@ void IdSet::remove(const IdSet& i)
             *w++ = *r;
         r++;
     }
+    return *this;
 }
 
 size_t IdSet::overlap(const IdSet& i) const
@@ -151,7 +155,7 @@ size_t IdSet::overlap(const IdSet& i) const
     auto r2 = i.begin();
     auto e2 = i.end();
     size_t count = 0;
-    while (r1 != e2 && r2 != e2)
+    while (r1 != e1 && r2 != e2)
     {
         while (r2 != e2 && *r2 < *r1)
             r2++;
@@ -242,4 +246,5 @@ TEST(IdSet, Overlap)
     EXPECT_EQ(1, IdSet({1}).overlap(IdSet({1})));
     EXPECT_EQ(3, IdSet({1,2,4,8}).overlap(IdSet({1,2,3,5,8})));
     EXPECT_EQ(1, IdSet({1,2,4,8}).overlap(IdSet({0,2,3,5,9})));
+    EXPECT_EQ(1, IdSet({1,3}).overlap(IdSet({2,3})));
 }

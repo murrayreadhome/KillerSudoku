@@ -20,6 +20,7 @@ public:
     bool empty() const;
     int sum() const;
 
+    bool contains(int n) const;
     NumberSet intersection(const NumberSet& s) const;
     NumberSet add(int n) const;
     NumberSet add(const NumberSet& s) const;

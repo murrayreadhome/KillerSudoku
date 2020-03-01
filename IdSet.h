@@ -20,10 +20,10 @@ public:
     size_t* begin();
     size_t* end();
 
-    void add(size_t i);
-    IdSet add(const IdSet& i) const;
-    void remove(size_t i);
-    void remove(const IdSet& i);
+    IdSet& add(size_t i);
+    IdSet& add(const IdSet& i);
+    IdSet& remove(size_t i);
+    IdSet& remove(const IdSet& i);
 
     size_t overlap(const IdSet& i) const;
 

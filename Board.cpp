@@ -8,16 +8,16 @@ using namespace std;
 
 
 Board::Board()
-: cells_(81), sums_(27, SumSet(45, 9))
+: cells_(81), sums_(27, SumSet(45, 9)), queues_(num_rules), queued_(27, 0)
 {
-    names_ = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    reverse(names_.begin(), names_.end());
-
     for (size_t i=0; i<cells_.size(); i++)
         cells_[i].id = i;
     for (size_t i=0; i<sums_.size(); i++)
+    {
         sums_[i].id = i;
-    
+        queue_sum(i);
+    }
+
     // rows
     for (size_t y=0; y<9; y++)
     {
@@ -51,16 +51,27 @@ Board::Board()
     }
 }
 
-void Board::add_sum(const IdSet& cells, int total)
+void Board::add_sum(const IdSet& cells, int total, char name)
 {
+    if (cells.empty())
+        return;
     SumSet s(total, cells.size());
     s.cells = cells;
     s.id = sums_.size();
-    s.name = names_.back();
-    names_.pop_back();
+    s.name = name;
     sums_.push_back(s);
+    queued_.push_back(0);
     for (size_t cell : cells)
         cells_[cell].sums.add(s.id);
+    queue_sum(s.id);
+}
+
+void Board::add_unique_sum(const IdSet& cells, int total, char name)
+{
+    for (const SumSet& s : sums_)
+        if (s.cells == cells)
+            return;
+    add_sum(cells, total, name);
 }
 
 void Board::set_cell(size_t cell, int value)
@@ -71,7 +82,220 @@ void Board::set_cell(size_t cell, int value)
     {
         sums_[s].cells.remove(cell);
         sums_[s].remove_cell(value);
+        queue_sum(s);
     }
+}
+
+void Board::restrict_cell(size_t cell, NumberSet allowed)
+{
+    Cell& c = cells_[cell];
+    NumberSet was = c.numbers();
+    NumberSet restriction = was.intersection(allowed);
+    if (restriction == was)
+        return;
+    c.set_numbers(restriction);
+    if (c.value() != Unknown)
+        set_cell(cell, c.value());
+    for (size_t s : c.sums)
+        queue_sum(s);
+}
+
+void Board::queue_sum(size_t sum)
+{
+    for (size_t i=0; i<num_rules; i++)
+    {
+        int queue_flag = 1<<i;
+        int& sum_flags = queued_[sum];
+        if (sum_flags & queue_flag)
+            continue;
+        sum_flags |= queue_flag;
+        queues_[i].push_back(sum);
+    }
+}
+
+bool Board::tick()
+{
+    for (size_t i=0; i<num_rules; i++)
+    {
+        auto& queue = queues_[i];
+        if (queue.empty())
+            continue;
+        size_t sum = queue.back();
+        queue.pop_back();
+        switch (i)
+        {
+            case 0:
+                sum_restrict_possible(sum);
+                break;
+            case 1:
+                restrict_sum_to_cell_possible(sum);
+                break;
+            case 2:
+                unique_required_position(sum);
+                break;
+            case 3:
+                unique_required_subset(sum);
+                break;
+        }
+        int queue_flag = 1<<i;
+        int& sum_flags = queued_[sum];
+        sum_flags &= ~queue_flag;
+        return true;
+    }
+    return false;
+}
+
+void Board::unique_required_subset(size_t s)
+{
+    IdSet innies;
+    const SumSet& parent = sums_[s];
+    for (size_t c : parent.cells)
+    {
+        for (size_t i : cells_[c].sums)
+        {
+            if (i == s)
+                continue;
+            const SumSet& innie = sums_[i];
+            if (innie.num_cells() > 0 &&
+                innie.num_cells() < parent.num_cells() &&
+                parent.cells.overlap(innie.cells) == innie.cells.size())
+                innies.add(i);
+        }
+    }
+
+    for (size_t i : innies)
+    {
+        const SumSet& innie = sums_[i];
+        if (innie.required().empty())
+            continue;
+        NumberSet allowed = innie.required().invert();
+        IdSet others = parent.cells;
+        others.remove(innie.cells);
+        for (size_t c : others)
+            restrict_cell(c, allowed);
+    }
+}
+
+void Board::innie_outie_sums(size_t s)
+{
+    if (s >= 27)
+        return;
+    IdSet innies;
+    get_non_overlap_innies(s, innies);
+    if (innies.empty())
+        return;
+    const SumSet& parent = sums_[s];
+    IdSet remainder = parent.cells;
+    int diff = parent.total();
+    for (size_t id : innies)
+    {
+        remainder.remove(sums_[id].cells);
+        diff -= sums_[id].total();
+    }
+    if (diff <= 0)
+        return;
+    add_unique_sum(remainder, diff, '.');
+
+    IdSet outies;
+    get_non_overlap_outies(remainder, outies);
+    if (outies.size() > 1)
+        return; // TODO add SumGroup
+    const SumSet& outie = sums_[*outies.begin()];
+    IdSet outie_cells = outie.cells;
+    outie_cells.remove(remainder);
+    add_unique_sum(outie_cells, outie.total() - diff, '.');
+}
+
+void Board::get_non_overlap_innies(size_t s, IdSet& innies)
+{
+    const SumSet& parent = sums_[s];
+    for (size_t c : parent.cells)
+    {
+        for (size_t i : cells_[c].sums)
+        {
+            if (i == s)
+                continue;
+            if (i < 27 || non_overlap_sums_ <= i)
+                continue;
+            const SumSet& innie = sums_[i];
+            if (parent.cells.overlap(innie.cells) == innie.cells.size())
+                innies.add(i);
+        }
+    }
+}
+
+void Board::get_non_overlap_outies(const IdSet& cells, IdSet& outies)
+{
+    for (size_t c : cells)
+    {
+        for (size_t i : cells_[c].sums)
+        {
+            if (i < 27 || non_overlap_sums_ <= i)
+                continue;
+            const SumSet& outie = sums_[i];
+            if (cells.overlap(outie.cells) < outie.cells.size())
+                outies.add(i);
+        }
+    }
+}
+
+void Board::restrict_sum_to_cell_possible(size_t s)
+{
+    SumSet& sum = sums_[s];
+    NumberSet possible = sum.possible();
+    NumberSet cell_possible;
+    for (size_t c : sum.cells)
+        cell_possible = cell_possible.add(cells_[c].numbers());
+    cell_possible = cell_possible.intersection(possible);
+    if (possible != cell_possible)
+    {
+        sum.restrict_possible(cell_possible);
+        unique_required_position(s);
+    }
+}
+
+void Board::unique_required_position(size_t s)
+{
+    const SumSet& sum = sums_[s];
+    NumberSet required = sum.required();
+    if (required.empty())
+        return;
+    for (size_t c : sum.cells)
+    {
+        NumberSet unique = cells_[c].numbers().intersection(required);
+        if (unique.empty())
+            continue;
+        for (size_t d : sum.cells)
+        {
+            if (c == d)
+                continue;
+            unique = unique.intersection(cells_[d].numbers().invert());
+        }
+        if (!unique.empty())
+            restrict_cell(c, unique);
+    }
+}
+
+void Board::sum_restrict_possible(size_t s)
+{
+    const SumSet& sum = sums_[s];
+    NumberSet possible = sum.possible();
+    for (size_t c : sum.cells)
+        restrict_cell(c, possible);
+}
+
+void Board::apply_rules()
+{
+    if (!started_)
+    {
+        non_overlap_sums_ = sums_.size();
+        for (size_t s=0; s<27; s++)
+            innie_outie_sums(s);
+    }
+    started_ = true;
+    bool keep_going = true;
+    while (keep_going)
+        keep_going = tick();
 }
 
 void Board::link(size_t sum, size_t cell)
@@ -92,15 +316,23 @@ std::ostream& operator<<(std::ostream& out, const Board& b)
                 out << cell.value();
             else
             {
-                size_t sum_id = *max_element(cell.sums.begin(), cell.sums.end());
-                if (sum_id >= 27)
-                    sums_used.insert(sum_id);
-                out << b.sums_[sum_id].name;
+                const size_t* psum_id = find_if(
+                    cell.sums.begin(),
+                    cell.sums.end(),
+                    [&](size_t s){return b.sums_[s].name != '.';});
+                if (psum_id != cell.sums.end())
+                {
+                    sums_used.insert(*psum_id);
+                    out << b.sums_[*psum_id].name;
+                }
+                else
+                {
+                    out << ".";
+                }
             }
         }
         out << endl;
     }
-    out << sums_used.size() << endl;
     for (size_t sum_id : sums_used)
     {
         const SumSet& sum = b.sums_[sum_id];
@@ -125,15 +357,19 @@ std::istream& operator>>(std::istream& in, Board& b)
         }
         in.get();
     }
-    size_t n = 0;
-    in >> n; in.get();
-    for (size_t i=0; i<n; i++)
+    for (size_t i=0; i<sum_cells.size(); i++)
     {
+        if (in.eof())
+            break;
         char c;
         int t;
-        in >> c >> t;
+        in >> c;
+        if (in.eof())
+            break;
+        in >> t;
         in.get();
-        b.add_sum(sum_cells[c], t);
+        if (sum_cells.count(c))
+            b.add_sum(sum_cells[c], t, c);
     }
 }
 
@@ -153,5 +389,57 @@ TEST(Board, Sudoku)
     stringstream in(sudoku);
     Board b;
     in >> b;
+    b.apply_rules();
+    cout << b;
+}
+
+TEST(Board, KillerSudoku)
+{
+    string sudoku = R"(ABCCDEFFG
+ABCCDEEGG
+HIIIJKLMG
+HNNOJKLMP
+QRROSTTUP
+QQRSSVWUP
+XYZaVVWUb
+XYZaccddb
+YYeeffddd
+A 14
+B 12
+C 22
+D 4
+E 16
+F 11
+G 14
+H 8
+I 20
+J 14
+K 11
+L 13
+M 9
+N 9
+O 7
+P 18
+Q 11
+R 18
+S 12
+T 9
+U 15
+V 22
+W 4
+X 7
+Y 18
+Z 15
+a 10
+b 7
+c 13
+d 31
+e 8
+f 3
+)";
+    stringstream in(sudoku);
+    Board b;
+    in >> b;
+    b.apply_rules();
     cout << b;
 }

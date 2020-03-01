@@ -73,8 +73,11 @@ void SumSet::add_required(NumberSet required)
 
 void SumSet::remove_cell(int value)
 {
+    if (!possible_.contains(value))
+        return;
     total_ -= value;
     num_cells_--;
+    required_ = required_.remove(NumberSet::single(value));
     restrict_possible(NumberSet::single(value).invert());
 }
 
@@ -144,4 +147,23 @@ TEST(SumSet, Remove)
     EXPECT_EQ(1, s.num_cells());
     EXPECT_EQ(NumberSet::single(3),s.possible());
     EXPECT_EQ(NumberSet::single(3),s.required());
+}
+
+TEST(SumSet, RemoveAgain)
+{
+    SumSet s(5,2);
+    s.remove_cell(2);
+    EXPECT_EQ(3, s.total());
+    s.remove_cell(2);
+    EXPECT_EQ(3, s.total());
+}
+
+TEST(SumSet, RemoveFull)
+{
+    SumSet s(3,2);
+    s.remove_cell(1);
+    EXPECT_EQ(2, s.total());
+    EXPECT_EQ(1, s.num_cells());
+    EXPECT_EQ(NumberSet::single(2),s.possible());
+    EXPECT_EQ(NumberSet::single(2),s.required());
 }

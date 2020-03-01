@@ -101,6 +101,11 @@ NumberSet NumberSet::intersection(const NumberSet& s) const
     return NumberSet{bits_ & s.bits_};
 }
 
+bool NumberSet::contains(int n) const
+{
+    return bits_ & 1<<(n-1);
+}
+
 NumberSet NumberSet::add(int n) const
 {
     return add(single(n));

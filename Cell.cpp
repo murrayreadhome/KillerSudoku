@@ -1,4 +1,5 @@
 #include "Cell.h"
+#include <stdexcept>
 using namespace std;
 
 Cell::Cell()
@@ -26,8 +27,11 @@ NumberSet Cell::numbers() const
 void Cell::set_numbers(NumberSet numbers)
 {
     numbers_ = numbers;
-    if (numbers_.size() == 1)
+    size_t n = numbers_.size();
+    if (n == 1)
         value_ = numbers_.nums().front();
+    else if (n == 0)
+        throw runtime_error("dead cell");
     else
         value_ = Unknown;
 }
