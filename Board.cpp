@@ -8,36 +8,29 @@ using namespace std;
 
 
 Board::Board()
-: cells_(81), sums_(27, SumSet(45, 9)), queues_(num_rules), queued_(27, 0)
-{
-    for (size_t i=0; i<cells_.size(); i++)
-        cells_[i].id = i;
-    for (size_t i=0; i<sums_.size(); i++)
-    {
-        sums_[i].id = i;
-        queue_sum(i);
-    }
+{}
 
-    // rows
-    for (size_t y=0; y<9; y++)
-    {
-        for (size_t x=0; x<9; x++)
-        {
-            size_t cell = y*9 + x;
-            link(y, cell);
-        }
-    }
-    
-    // columns
-    for (size_t y=0; y<9; y++)
-    {
-        for (size_t x=0; x<9; x++)
-        {
-            size_t col = x+9;
-            size_t cell = y*9 + x;
-            link(col, cell);
-        }
-    }
+void Board::setup(const string& type)
+{
+    type_ = type;
+    if (type == "sudoku" || type == "killer")
+        setup_sudoku();
+    else if (type == "lessthan")
+        setup_lessthan();
+}
+
+const string& Board::type() const
+{
+    return type_;
+}
+
+void Board::setup_sudoku()
+{
+    n_ = 9;
+    grid_sums_ = 27;
+    sums_.resize(grid_sums_, SumSet(45, 9));
+    sum_queued_.resize(grid_sums_, 0);
+    setup_rowscols(9);
 
     // blocks
     for (size_t b=0; b<9; b++)
@@ -51,6 +44,52 @@ Board::Board()
     }
 }
 
+void Board::setup_lessthan()
+{
+    n_ = 6;
+    grid_sums_ = 12;
+    sums_.resize(grid_sums_, SumSet(21, 6));
+    sum_queued_.resize(grid_sums_, 0);
+    setup_rowscols(6);
+}
+
+void Board::setup_rowscols(size_t n)
+{
+    cells_.resize(n*n);
+    sum_queues_.resize(num_rules);
+    lessthan_queues_.resize(num_lessthan_rules);
+    lessthan_queued_.resize(n*n, 0);
+
+    for (size_t i=0; i<cells_.size(); i++)
+        cells_[i].id = i;
+    for (size_t i=0; i<sums_.size(); i++)
+    {
+        sums_[i].id = i;
+        queue_sum(i);
+    }
+
+    // rows
+    for (size_t y=0; y<n; y++)
+    {
+        for (size_t x=0; x<n; x++)
+        {
+            size_t cell = y*n + x;
+            link(y, cell);
+        }
+    }
+    
+    // columns
+    for (size_t y=0; y<n; y++)
+    {
+        for (size_t x=0; x<n; x++)
+        {
+            size_t col = x+n;
+            size_t cell = y*n + x;
+            link(col, cell);
+        }
+    }
+}
+
 void Board::add_sum(const IdSet& cells, int total, char name)
 {
     if (cells.empty())
@@ -60,10 +99,20 @@ void Board::add_sum(const IdSet& cells, int total, char name)
     s.id = sums_.size();
     s.name = name;
     sums_.push_back(s);
-    queued_.push_back(0);
+    sum_queued_.push_back(0);
     for (size_t cell : cells)
         cells_[cell].sums.add(s.id);
     queue_sum(s.id);
+}
+
+void Board::add_less_than(int a, int b)
+{
+    size_t id = lessthans_.size();
+    lessthans_.push_back({a,b});
+    lessthan_queued_.push_back(0);
+    cells_[a].lessthans.add(id);
+    cells_[b].lessthans.add(id);
+    queue_lessthan(id);
 }
 
 void Board::add_unique_sum(const IdSet& cells, int total, char name)
@@ -84,6 +133,8 @@ void Board::set_cell(size_t cell, int value)
         sums_[s].remove_cell(value);
         queue_sum(s);
     }
+    for (size_t l : c.lessthans)
+        queue_lessthan(l);
 }
 
 void Board::restrict_cell(size_t cell, NumberSet allowed)
@@ -98,6 +149,8 @@ void Board::restrict_cell(size_t cell, NumberSet allowed)
         set_cell(cell, c.value());
     for (size_t s : c.sums)
         queue_sum(s);
+    for (size_t l: c.lessthans)
+        queue_lessthan(l);
 }
 
 void Board::queue_sum(size_t sum)
@@ -105,19 +158,50 @@ void Board::queue_sum(size_t sum)
     for (size_t i=0; i<num_rules; i++)
     {
         int queue_flag = 1<<i;
-        int& sum_flags = queued_[sum];
+        int& sum_flags = sum_queued_[sum];
         if (sum_flags & queue_flag)
             continue;
         sum_flags |= queue_flag;
-        queues_[i].push_back(sum);
+        sum_queues_[i].push_back(sum);
+    }
+}
+
+void Board::queue_lessthan(size_t cell)
+{
+    for (size_t i=0; i<num_lessthan_rules; i++)
+    {
+        int queue_flag = 1<<i;
+        int& cell_flags = lessthan_queued_[cell];
+        if (cell_flags & queue_flag)
+            continue;
+        cell_flags |= queue_flag;
+        lessthan_queues_[i].push_back(cell);
     }
 }
 
 bool Board::tick()
 {
+    for (size_t i=0; i<num_lessthan_rules; i++)
+    {
+        auto& queue = lessthan_queues_[i];
+        if (queue.empty())
+            continue;
+        size_t lessthan = queue.back();
+        queue.pop_back();
+        switch (i)
+        {
+            case 0:
+                lessthan_restrict_possible(lessthan);
+                break;
+        }
+        int queue_flag = 1<<i;
+        int& lessthan_flags = lessthan_queued_[lessthan];
+        lessthan_flags &= ~queue_flag;
+        return true;
+    }
     for (size_t i=0; i<num_rules; i++)
     {
-        auto& queue = queues_[i];
+        auto& queue = sum_queues_[i];
         if (queue.empty())
             continue;
         size_t sum = queue.back();
@@ -141,11 +225,30 @@ bool Board::tick()
                 break;
         }
         int queue_flag = 1<<i;
-        int& sum_flags = queued_[sum];
+        int& sum_flags = sum_queued_[sum];
         sum_flags &= ~queue_flag;
         return true;
     }
     return false;
+}
+
+void Board::lessthan_restrict_possible(size_t lessthan)
+{
+    const auto& lt = lessthans_[lessthan];
+    Cell& small = cells_[lt.first];
+    Cell& big = cells_[lt.second];
+
+    int low = small.numbers().nums().front() + 1;
+    NumberSet high_allowed;
+    for (int i=low; i<=n_; i++)
+        high_allowed = high_allowed.add(i);
+    restrict_cell(big.id, high_allowed);
+
+    int high = big.numbers().nums().back() - 1;
+    NumberSet low_allowed;
+    for (int i=1; i<=high; i++)
+        low_allowed = low_allowed.add(i);
+    restrict_cell(small.id, low_allowed);
 }
 
 void Board::unique_required_free_subset(size_t s)
@@ -206,7 +309,7 @@ void Board::unique_required_subset(size_t s)
 
 void Board::innie_outie_sums(size_t s)
 {
-    if (s >= 27)
+    if (s >= grid_sums_)
         return;
     IdSet innies;
     get_non_overlap_innies(s, innies);
@@ -243,7 +346,7 @@ void Board::get_non_overlap_innies(size_t s, IdSet& innies)
         {
             if (i == s)
                 continue;
-            if (i < 27 || non_overlap_sums_ <= i)
+            if (i < grid_sums_ || non_overlap_sums_ <= i)
                 continue;
             const SumSet& innie = sums_[i];
             if (parent.cells.overlap(innie.cells) == innie.cells.size())
@@ -258,7 +361,7 @@ void Board::get_non_overlap_outies(const IdSet& cells, IdSet& outies)
     {
         for (size_t i : cells_[c].sums)
         {
-            if (i < 27 || non_overlap_sums_ <= i)
+            if (i < grid_sums_ || non_overlap_sums_ <= i)
                 continue;
             const SumSet& outie = sums_[i];
             if (cells.overlap(outie.cells) < outie.cells.size())
@@ -317,7 +420,7 @@ void Board::apply_rules()
     if (!started_)
     {
         non_overlap_sums_ = sums_.size();
-        for (size_t s=0; s<27; s++)
+        for (size_t s=0; s<grid_sums_; s++)
             innie_outie_sums(s);
     }
     started_ = true;
@@ -368,12 +471,14 @@ void Board::link(size_t sum, size_t cell)
 
 std::ostream& operator<<(std::ostream& out, const Board& b)
 {
+    out << b.type() << endl;
     set<size_t> sums_used;
-    for (size_t y=0; y<9; y++)
+    set<size_t> lessthans_used;
+    for (size_t y=0; y<b.n_; y++)
     {
-        for (size_t x=0; x<9; x++)
+        for (size_t x=0; x<b.n_; x++)
         {
-            const Cell& cell = b.cells_[y*9 + x];
+            const Cell& cell = b.cells_[y*b.n_ + x];
             if (cell.value() != Unknown)
                 out << cell.value();
             else
@@ -391,6 +496,8 @@ std::ostream& operator<<(std::ostream& out, const Board& b)
                 {
                     out << ".";
                 }
+                for (size_t l : cell.lessthans)
+                    lessthans_used.insert(l);
             }
         }
         out << endl;
@@ -400,16 +507,24 @@ std::ostream& operator<<(std::ostream& out, const Board& b)
         const SumSet& sum = b.sums_[sum_id];
         out << sum.name << " " << sum.total() << endl;
     }
+    for (size_t l : lessthans_used)
+    {
+        const auto& lt = b.lessthans_[l];
+        out << lt.first << "<" << lt.second << endl;
+    }
 }
 
 std::istream& operator>>(std::istream& in, Board& b)
 {
+    string type;
+    in >> type; in.get();
+    b.setup(type);
     map<char, IdSet> sum_cells;
-    for (size_t y=0; y<9; y++)
+    for (size_t y=0; y<b.n_; y++)
     {
-        for (size_t x=0; x<9; x++)
+        for (size_t x=0; x<b.n_; x++)
         {
-            size_t cell = y*9 + x;
+            size_t cell = y*b.n_ + x;
             char c;
             in >> c;
             if ('1'<=c && c<='9')
@@ -419,19 +534,44 @@ std::istream& operator>>(std::istream& in, Board& b)
         }
         in.get();
     }
-    for (size_t i=0; i<sum_cells.size(); i++)
+    if (type == "killer")
     {
-        if (in.eof())
-            break;
-        char c;
-        int t;
-        in >> c;
-        if (in.eof())
-            break;
-        in >> t;
-        in.get();
-        if (sum_cells.count(c))
-            b.add_sum(sum_cells[c], t, c);
+        for (size_t i=0; i<sum_cells.size(); i++)
+        {
+            if (in.eof())
+                break;
+            char c;
+            int t;
+            in >> c;
+            if (in.eof())
+                break;
+            in >> t;
+            in.get();
+            if (sum_cells.count(c))
+                b.add_sum(sum_cells[c], t, c);
+        }
+    }
+    else if (type == "lessthan")
+    {
+        while (!in.eof())
+        {
+            string line;
+            getline(in, line);
+            if (line.size() >= 3)
+            {
+                const IdSet& from = sum_cells[line[0]];
+                const IdSet& to = sum_cells[line[2]];
+                char op = line[1];
+                if (from.size() && to.size() && (op=='<' || op=='>'))
+                {
+                    int x = *from.begin();
+                    int y = *to.begin();
+                    if (op=='>')
+                        swap(x, y);
+                    b.add_less_than(x, y);
+                }
+            }
+        }
     }
 }
 
@@ -439,7 +579,8 @@ std::istream& operator>>(std::istream& in, Board& b)
 
 TEST(Board, Sudoku)
 {
-    string sudoku = R"(53..7....
+    string sudoku = R"(sudoku
+53..7....
 6..195...
 .98....6.
 8...6...3
@@ -457,7 +598,8 @@ TEST(Board, Sudoku)
 
 TEST(Board, KillerSudoku)
 {
-    string sudoku = R"(ABCCDEFFG
+    string sudoku = R"(killer
+ABCCDEFFG
 ABCCDEEGG
 HIIIJKLMG
 HNNOJKLMP
@@ -508,7 +650,8 @@ f 3
 
 TEST(Board, KillerSudoku2)
 {
-    string sudoku = R"(AABCDEFFG
+    string sudoku = R"(killer
+AABCDEFFG
 HIBCDEJJG
 HIKKLLJJM
 NNKKOLPQM
@@ -555,5 +698,34 @@ g 7
     Board b;
     in >> b;
     b.solve();
+    cout << b;
+}
+
+TEST(Board, LessThan)
+{
+    string sudoku = R"(lessthan
+AB1CDE
+FG....
+HIJKL.
+M..NO.
+....5.
+.4PQRS
+A>F
+B>G
+F<G
+C>D
+D>E
+H>M
+H<I
+J<K
+K<N
+L>O
+P<Q
+R>S
+)";
+    stringstream in(sudoku);
+    Board b;
+    in >> b;
+    b.apply_rules();
     cout << b;
 }

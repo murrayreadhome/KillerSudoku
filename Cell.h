@@ -17,7 +17,8 @@ public:
 
     size_t id;
     IdSet sums;
-
+    IdSet lessthans;
+    
 private:
     int value_;
     NumberSet numbers_;
